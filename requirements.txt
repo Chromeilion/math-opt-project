@@ -1,3 +1,5 @@
-gurobipy~=11.0.3
+gurobipy
 scipy
-numpy~=2.1.2
+numpy
+networkx
+matplotlib
