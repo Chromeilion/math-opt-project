@@ -12,7 +12,8 @@ def calc_osap(node_set: list[int],
               special_student_requirement: Optional[list[tuple[list[int], int]]] = None,
               force_teammates: Optional[list[tuple[int, int]]] = None,
               avert_teammates: Optional[list[tuple[int, int]]] = None,
-              maximize_inner_ties: Optional[bool] = None):
+              maximize_inner_ties: Optional[bool] = None,
+              n_threads: Optional[int] = None):
     """
     Create student optimal groups.
 
@@ -36,6 +37,8 @@ def calc_osap(node_set: list[int],
         List of students that cannot be together
     maximize_inner_ties
         Whether to maximize the objective function instead of minimize
+    n_threads
+        Number of threads to use with the Gurobi solver
 
     Returns
     -------
@@ -72,6 +75,9 @@ def calc_osap(node_set: list[int],
 
 
     model = gp.Model("student_grouping")
+    if n_threads is not None:
+        model.Params.Threads = n_threads
+
     model.Params.LogToConsole = 0
     M = list(range(n_teams))
     U = min_team_size
