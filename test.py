@@ -1,18 +1,18 @@
-from osap import calc_osap, calc_rand
 import random
-import networkx as nx
-import matplotlib.pyplot as plt
-import numpy as np
-import scipy
-import tqdm
 import itertools
+import unittest
+
+import networkx as nx
+import numpy as np
+import tqdm
+import gurobipy
+
+from osap import calc_osap, calc_rand
+from utils import generate_data, plot_results
+
 
 SEED = 42
-COLORS = {0: "tab:red", 1: "tab:blue", 2: "tab:green", 3: "tab:pink",
-          4: "tab:orange", 5: "tab:purple", 6: "tab:brown"}
-# Setting for lognorm distribution
-# Is set so that most students have 1  or 2 connections
-MU, SIGMA = 1, 0.3
+
 np.random.seed(SEED)
 random.seed(SEED)
 
@@ -23,78 +23,119 @@ test_cases = [
      "max_team_size": 2,
      "n_teams": 2,
      "node_set": list(range(4))},
-     "best_result": 0}
+     "best_result": 0,
+     "raises": None},
+    {"input": {"edge_set":[(0, 1), (1, 0), (2, 1), (1, 2), (3, 1),  (1, 3)],
+     "min_team_size": 2,
+     "max_team_size": 2,
+     "n_teams": 2,
+     "node_set": list(range(4))},
+     "best_result": 2,
+     "raises": None},
+    {"input": {"edge_set":[(0, 1), (1, 0), (2, 1), (1, 2)],
+     "min_team_size": 2,
+     "max_team_size": 3,
+     "n_teams": 2,
+     "node_set": list(range(5))},
+     "best_result": 0,
+     "raises": None},
+    {"input": {"edge_set": [(0, 1), (1, 0), (2, 3), (3, 2)],
+               "min_team_size": 2,
+               "max_team_size": 2,
+               "n_teams": 2,
+               "node_set": list(range(4)),
+               "student_assignments": [(0, 0), (1, 0)]},
+     "best_result": 4,
+     "raises": None},
+    {"input": {"edge_set": [(0, 1), (1, 0)],
+               "min_team_size": 2,
+               "max_team_size": 2,
+               "n_teams": 2,
+               "node_set": list(range(4)),
+               "student_assignments": [(2, 0), (3, 0)]},
+     "best_result": 2,
+     "raises": None},
+    {"input": {"edge_set": [(0, 1), (1, 0)],
+               "min_team_size": 2,
+               "max_team_size": 2,
+               "n_teams": 2,
+               "node_set": list(range(4)),
+               "special_student_requirement": [([0, 1], 2)]},
+     "best_result": 0,
+     "raises": gurobipy.gurobipy.GurobiError},
+    {"input": {"edge_set": [(0, 1), (1, 0)],
+               "min_team_size": 3,
+               "max_team_size": 3,
+               "n_teams": 2,
+               "node_set": list(range(6)),
+               "student_assignments": [(0, 0), (1, 0)],
+               "special_student_requirement": [([0, 1, 2, 3], 1)]},
+     "best_result": 2,
+     "raises": None},
+    {"input": {"edge_set": [(0, 1), (1, 0)],
+               "min_team_size": 2,
+               "max_team_size": 2,
+               "n_teams": 2,
+               "node_set": list(range(4)),
+               "student_assignments": [(0, 0), (1, 0)],
+               "force_teammates": [(0, 1)]},
+     "best_result": 2,
+     "raises": None},
+    {"input": {"edge_set": [(0, 1), (1, 0)],
+               "min_team_size": 2,
+               "max_team_size": 2,
+               "n_teams": 2,
+               "node_set": list(range(4)),
+               "student_assignments": [(0, 0), (1, 0)],
+               "avert_teammates": [(0, 1)]},
+     "best_result": 0,
+     "raises": gurobipy.gurobipy.GurobiError},
+    {"input": {"edge_set": [(0, 2), (2, 0), (0, 3), (3, 0)],
+               "min_team_size": 2,
+               "max_team_size": 2,
+               "n_teams": 2,
+               "node_set": list(range(4)),
+               "avert_teammates": [(0, 1)]},
+     "best_result": 2,
+     "raises": None},
+    {"input": {"edge_set": [(0, 2), (2, 0), (0, 3), (3, 0)],
+               "min_team_size": 2,
+               "max_team_size": 2,
+               "n_teams": 2,
+               "node_set": list(range(4)),
+               "maximize_inner_ties": True},
+     "best_result": 4,
+     "raises": None},
 ]
-
-
-def generate_data(n_students: int):
-    Y = scipy.stats.lognorm(s=SIGMA, scale=np.exp(MU))
-    graph = []
-    all_students = list(range(n_students))
-    for i in range(n_students):
-        n_friends = min(np.round(Y.rvs(size=1))[0], n_students)
-        friends = random.sample(all_students, random.randint(1, n_students))
-        current_n_friends = len([j for j in graph if i in j])
-        if current_n_friends >= n_friends:
-            continue
-        for j in friends:
-            if i != j:
-                graph.append((i, j))
-
-    return graph
-
-def plot_results(relationship_graph, teams):
-    lab = np.where(teams)[1]
-    G = nx.Graph()
-    G.add_edges_from(relationship_graph)
-    pos = nx.shell_layout(G)
-    nx.draw_networkx_edges(
-        G,
-        pos,
-        edgelist=relationship_graph,
-        width=2,
-        alpha=1
-    )
-    node_partitions = []
-    for i in range(teams.shape[1]):
-        node_partitions.append(np.where(lab == i)[0])
-    for p_no, partition in enumerate(node_partitions):
-        p = list(partition)
-        nx.draw_networkx_nodes(G, pos, nodelist=p, node_color=COLORS[p_no])
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            edgelist=[i for i in relationship_graph if
-                      i[0] in p and i[1] in p],
-            width=2,
-            alpha=1,
-            edge_color="tab:red"
-        )
-
-    labels = {i: i for i in range(lab.shape[0])}
-    nx.draw_networkx_labels(G, pos, labels,
-                            font_color="whitesmoke")
-    plt.title("Student Relationship Network")
-    plt.show()
 
 
 def test_osap():
     for case in test_cases:
-        teams, obj = calc_osap(**case["input"])
-        assert np.isclose(obj, case["best_result"])
-        assert teams.shape[1] == case["input"]["n_teams"]
-        assert teams.shape[0] == len(case["input"]["node_set"])
-        n_students_per_team = np.sum(teams, axis=0)
-        assert np.all(case["input"]["max_team_size"] >= n_students_per_team)
-        assert np.all(case["input"]["min_team_size"] <= n_students_per_team)
+        if case["raises"] is not None:
+            try:
+                teams, obj = calc_osap(**case["input"])
+            except case["raises"]:
+                continue
+            else:
+                raise AssertionError("Case should have raised an error!")
+        else:
+            teams, obj = calc_osap(**case["input"])
+            assert np.isclose(obj, case["best_result"])
+            assert teams.shape[1] == case["input"]["n_teams"]
+            assert teams.shape[0] == len(case["input"]["node_set"])
+            n_students_per_team = np.sum(teams, axis=0)
+            assert np.all(case["input"]["max_team_size"] >= n_students_per_team)
+            assert np.all(case["input"]["min_team_size"] <= n_students_per_team)
 
-    n_tests = 4
+    do_plot()
+
+    n_tests = 20
     min_students_per_test = 20
-    max_students_per_test = 30
+    max_students_per_test = 50
     min_teams = 3
     max_teams = 5
     min_teamsize = 2
-    max_teamsize = 10
+    max_teamsize = 20
     old_stats_opt = []
     new_stats_opt = []
     old_stats_rand = []
@@ -115,7 +156,6 @@ def test_osap():
         new_stats_rand.append(stats[1])
 
     make_comp_plots(old_stats_opt, new_stats_opt, old_stats_rand, new_stats_rand)
-    do_plot()
 
 def make_comp_plots(old_stats_opt, new_stats_opt, old_stats_rand, new_stats_rand):
     old_stats_opt, new_stats_opt = np.array(old_stats_opt), np.array(new_stats_opt)
@@ -193,6 +233,15 @@ def do_plot():
         min_team_size=min_team_size,
         max_team_size=max_team_size,
         n_teams=n_teams
+    )
+    plot_results(edges, teams)
+    teams, _ = calc_osap(
+        node_set=nodes,
+        edge_set=edges,
+        min_team_size=min_team_size,
+        max_team_size=max_team_size,
+        n_teams=n_teams,
+        maximize_inner_ties=True
     )
     plot_results(edges, teams)
 
