@@ -13,7 +13,10 @@ def calc_osap(node_set: list[int],
               force_teammates: Optional[list[tuple[int, int]]] = None,
               avert_teammates: Optional[list[tuple[int, int]]] = None,
               maximize_inner_ties: Optional[bool] = None,
-              n_threads: Optional[int] = None):
+              n_threads: Optional[int] = None,
+              n_concurrent: Optional[int] = None,
+              dense: Optional[bool] = None,
+              dense_fancy: Optional[bool] = None):
     """
     Create student optimal groups.
 
@@ -39,6 +42,14 @@ def calc_osap(node_set: list[int],
         Whether to maximize the objective function instead of minimize
     n_threads
         Number of threads to use with the Gurobi solver
+    n_concurrent
+        Number of concurrent solvers to use
+    dense
+        Whether to use a modified version of the model that's slower but better
+        for dense cases.
+    dense_fancy
+        Whether to use the very complicated dense formula for the best overall
+        result.
 
     Returns
     -------
@@ -55,6 +66,8 @@ def calc_osap(node_set: list[int],
         avert_teammates = []
     if maximize_inner_ties is None:
         maximize_inner_ties = False
+    if dense_fancy is None:
+        dense_fancy = False
 
     if isinstance(max_team_size, list):
         if len(max_team_size) != n_teams:
@@ -73,12 +86,15 @@ def calc_osap(node_set: list[int],
     else:
         min_team_size = [min_team_size] * n_teams
 
-
     model = gp.Model("student_grouping")
+    model.Params.LogToConsole = 0
     if n_threads is not None:
         model.Params.Threads = n_threads
+    if n_concurrent is not None:
+        model.Params.ConcurrentMIP = n_concurrent
+    if dense is None:
+        dense = False
 
-    model.Params.LogToConsole = 0
     M = list(range(n_teams))
     U = min_team_size
     O = max_team_size
@@ -87,11 +103,20 @@ def calc_osap(node_set: list[int],
         vtype=gp.GRB.BINARY,
         name="X"
     )
-    Y = model.addMVar(
-        shape=(len(node_set), len(node_set)),
-        vtype=gp.GRB.BINARY,
-        name="Y"
-    )
+    if dense:
+        Y = [
+            model.addMVar(
+                shape=(len(node_set), len(node_set)),
+                vtype=gp.GRB.BINARY,
+                name=f"Y_{i}"
+            ) for i in M
+        ]
+    else:
+        Y = model.addMVar(
+            shape=(len(node_set), len(node_set)),
+            vtype=gp.GRB.BINARY,
+            name="Y"
+        )
     # Add any manually assigned students
     for student, team in student_assignments:
         model.addConstr(
@@ -119,11 +144,18 @@ def calc_osap(node_set: list[int],
         )
 
     # Encode the objective
-    if not maximize_inner_ties:
-        model.setObjective(gp.quicksum([Y[i, j] for i, j in edge_set]), gp.GRB.MINIMIZE)
+    obj = gp.GRB.MAXIMIZE if maximize_inner_ties else gp.GRB.MINIMIZE
+    if dense:
+        Z = model.addVar(vtype=gp.GRB.INTEGER, name="Z", lb=0,
+                         ub=len(edge_set))
+        for y_k in Y:
+            model.addConstr(gp.quicksum([y_k[i,j] for i,j in edge_set]) <= Z)
+        if dense_fancy:
+            model.setObjective(Z+1/(len(M)+1)*gp.quicksum([gp.quicksum([y_k[i,j] for i, j in edge_set]) for y_k in Y]))
+        else:
+            model.setObjective(Z, obj)
     else:
-        model.setObjective(gp.quicksum([Y[i, j] for i, j in edge_set]),
-                           gp.GRB.MAXIMIZE)
+        model.setObjective(gp.quicksum([Y[i, j] for i, j in edge_set]), obj)
 
     for i in node_set:
         # Encode constraint 2: Assign every student to exactly 1 team
@@ -143,13 +175,19 @@ def calc_osap(node_set: list[int],
         )
 
     for i, j in edge_set:
-        # Constraint 4: conflict variable takes value 1 when two connected
+        # Constraint 4/8: conflict variable takes value 1 when two connected
         # nodes are together in a group.
         for k in M:
-            model.addConstr(
-                X[i, k] + X[j, k] <= Y[i, j] + 1,
-                name="4"
-            )
+            if dense:
+                model.addConstr(
+                    X[i, k] + X[j, k] <= Y[k][i, j] + 1,
+                    name="8"
+                )
+            else:
+                model.addConstr(
+                    X[i, k] + X[j, k] <= Y[i, j] + 1,
+                    name="4"
+                )
 
     model.optimize()
     model.fixed()
