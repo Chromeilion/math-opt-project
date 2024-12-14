@@ -1,16 +1,12 @@
-import random
-import itertools
-import unittest
 import os
 import time
-import networkx as nx
 import numpy as np
 import tqdm
-import gurobipy
 import matplotlib.pyplot as plt
 
-from osap import calc_osap, calc_rand
-from utils import generate_data, plot_results
+from osap import calc_osap
+from utils import generate_data, plot_results, factors
+
 
 WEAK_SCALE_RATIO = 10
 MAX_THREADS = os.cpu_count()-1
@@ -18,18 +14,40 @@ STRONG_WORKLOAD = 50
 STRONG_MIN_TEAMSIZE = 3
 STRONG_MAX_TEAMSIZE = 6
 STRONG_N_TEAMS =  11
-N_TESTS = 5
+N_TESTS = 1
+N_STUDENTS_GROUP_SCALING = 100
 
 
 def main():
+    times, workload = test_teams()
+    plot_results(workload, times, "Team Size Scaling (for 100 students)", "Time", "Team Size", "./team_scaling.png")
     times_weak, threads_weak = test_weak()
+    plot_results(threads_weak, times_weak, 'Weak Scaling', "Time", "Threads", "./weak.png")
     times_strong, threads_strong = test_strong()
     times_strong_inv = 1 / np.array(times_strong)
     times, workload = test_reg()
-    plot_results(threads_weak, times_weak, 'Weak Scaling', "Time", "Threads", "./weak.png")
     plot_results(threads_strong, times_strong, 'Strong Scaling', "Time", "Threads", "./strong.png")
     plot_results(threads_strong, times_strong_inv, 'Strong Scaling Inverted', "Time", "Threads", "./strong_inv.png")
-    plot_results(workload, times, "Time VS Workload", "Time", "No. Students", "./scaling.png")
+    plot_results(workload, times, "Student Scaling", "Time", "No. Students", "./scaling.png")
+
+
+def test_teams():
+    times = []
+    workloads = []
+    peak = 6
+    factors_teams = list(factors(N_STUDENTS_GROUP_SCALING))
+    for n_teams in tqdm.tqdm(factors_teams, desc="Testing team scaling"):
+        nodes = list(range(N_STUDENTS_GROUP_SCALING))
+        edges = generate_data(N_STUDENTS_GROUP_SCALING)
+        func = lambda: calc_osap(node_set=nodes,
+                                 edge_set=edges,
+                                 n_teams=n_teams,
+                                 min_team_size=3,
+                                 max_team_size=8)
+        times.append(time_func(N_TESTS, func))
+        workloads.append(n_teams)
+
+    return times, workloads
 
 
 def test_reg():

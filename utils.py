@@ -11,6 +11,17 @@ COLORS = {0: "tab:red", 1: "tab:blue", 2: "tab:green", 3: "tab:pink",
 # Is set so that most students have 1  or 2 connections
 MU, SIGMA = 1, 0.3
 
+# Thanks to this post:
+# https://stackoverflow.com/questions/16007204/factorizing-a-number-in-python
+def factors(n):
+    while n > 1:
+        for i in range(2, n + 1):
+            if n % i == 0:
+                n //= i
+                yield i
+                break
+
+
 def generate_data(n_students: int):
     Y = scipy.stats.lognorm(s=SIGMA, scale=np.exp(MU))
     graph = []

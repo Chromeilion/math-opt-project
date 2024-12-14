@@ -1,6 +1,5 @@
 import random
 import itertools
-import unittest
 
 import networkx as nx
 import numpy as np
@@ -62,7 +61,7 @@ test_cases = [
                "node_set": list(range(4)),
                "special_student_requirement": [([0, 1], 2)]},
      "best_result": 0,
-     "raises": gurobipy.gurobipy.GurobiError},
+     "raises": gurobipy.GurobiError},
     {"input": {"edge_set": [(0, 1), (1, 0)],
                "min_team_size": 3,
                "max_team_size": 3,
@@ -89,7 +88,7 @@ test_cases = [
                "student_assignments": [(0, 0), (1, 0)],
                "avert_teammates": [(0, 1)]},
      "best_result": 0,
-     "raises": gurobipy.gurobipy.GurobiError},
+     "raises": gurobipy.GurobiError},
     {"input": {"edge_set": [(0, 2), (2, 0), (0, 3), (3, 0)],
                "min_team_size": 2,
                "max_team_size": 2,
