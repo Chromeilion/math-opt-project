@@ -1,4 +1,5 @@
 import random
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -6,6 +7,9 @@ import scipy
 
 COLORS = {0: "tab:red", 1: "tab:blue", 2: "tab:green", 3: "tab:pink",
           4: "tab:orange", 5: "tab:purple", 6: "tab:brown"}
+
+
+mpl.rcParams['figure.dpi'] = 300
 
 # Setting for lognorm distribution
 # Is set so that most students have 1  or 2 connections
@@ -38,7 +42,9 @@ def generate_data(n_students: int):
 
     return graph
 
-def plot_results(relationship_graph, teams):
+def plot_results(relationship_graph, teams, saveloc, no_color: bool = False, title: str = None):
+    if title is None:
+        title = "Student Relationship Network"
     lab = np.where(teams)[1]
     G = nx.Graph()
     G.add_edges_from(relationship_graph)
@@ -56,18 +62,20 @@ def plot_results(relationship_graph, teams):
     for p_no, partition in enumerate(node_partitions):
         p = list(partition)
         nx.draw_networkx_nodes(G, pos, nodelist=p, node_color=COLORS[p_no])
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            edgelist=[i for i in relationship_graph if
-                      i[0] in p and i[1] in p],
-            width=2,
-            alpha=1,
-            edge_color="tab:red"
-        )
+        if not no_color:
+            nx.draw_networkx_edges(
+                G,
+                pos,
+                edgelist=[i for i in relationship_graph if
+                          i[0] in p and i[1] in p],
+                width=2,
+                alpha=1,
+                edge_color="tab:red"
+            )
 
     labels = {i: i for i in range(lab.shape[0])}
     nx.draw_networkx_labels(G, pos, labels,
                             font_color="whitesmoke")
-    plt.title("Student Relationship Network")
-    plt.show()
+    plt.title(title)
+    plt.savefig(saveloc)
+    plt.close()
