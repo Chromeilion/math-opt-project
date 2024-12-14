@@ -20,7 +20,7 @@ N_STUDENTS_GROUP_SCALING = 100
 
 def main():
     times, workload = test_teams()
-    plot_results(workload, times, "Team Size Scaling (for 100 students)", "Time", "Team Size", "./team_scaling.png")
+    plot_results(workload, times, f"Team Size Scaling (for {N_STUDENTS_GROUP_SCALING} students)", "Time", "Team Size", "./team_scaling.png")
     times_fancy, workload_fancy = test_reg(fancy=True)
     times, workload = test_reg()
     fig, ax = plt.subplots()
@@ -39,12 +39,16 @@ def main():
     plot_results(threads_strong, times_strong, 'Strong Scaling', "Time", "Threads", "./strong.png")
     plot_results(threads_strong, times_strong_inv, 'Strong Scaling Inverted', "Time", "Threads", "./strong_inv.png")
     plot_results(workload, times, "Student Scaling", "Time", "No. Students", "./scaling.png")
+    times_conc, n_conc = test_concurrent()
+    plot_results(times_conc, n_conc, 'Concurrent Solver Scaling', "No. Solvers", "Time", "./conc.png")
+    plot_results(threads_weak, times_weak, 'Weak Scaling', "Threads", "Time", "./weak.png")
+    plot_results(threads_strong, times_strong, 'Strong Scaling', "Threads", "Time", "./strong.png")
+    plot_results(threads_strong, times_strong_inv, 'Strong Scaling Inverted', "Threads", "Time", "./strong_inv.png")
 
 
 def test_teams():
     times = []
     workloads = []
-    peak = 6
     factors_teams = list(factors(N_STUDENTS_GROUP_SCALING))
     for n_teams in tqdm.tqdm(factors_teams, desc="Testing team scaling"):
         nodes = list(range(N_STUDENTS_GROUP_SCALING))
@@ -58,11 +62,6 @@ def test_teams():
         workloads.append(n_teams)
 
     return times, workloads
-    times_conc, n_conc = test_concurrent()
-    plot_results(times_conc, n_conc, 'Concurrent Solver Scaling', "No. Solvers", "Time", "./conc.png")
-    plot_results(threads_weak, times_weak, 'Weak Scaling', "Threads", "Time", "./weak.png")
-    plot_results(threads_strong, times_strong, 'Strong Scaling', "Threads", "Time", "./strong.png")
-    plot_results(threads_strong, times_strong_inv, 'Strong Scaling Inverted', "Threads", "Time", "./strong_inv.png")
 
 
 def test_reg(fancy: bool = None):
