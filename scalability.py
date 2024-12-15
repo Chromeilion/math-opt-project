@@ -14,13 +14,15 @@ STRONG_WORKLOAD = 50
 STRONG_MIN_TEAMSIZE = 3
 STRONG_MAX_TEAMSIZE = 6
 STRONG_N_TEAMS =  11
-N_TESTS = 1
-N_STUDENTS_GROUP_SCALING = 100
+N_TESTS = 5
+N_STUDENTS_GROUP_SCALING = 50
 
 
 def main():
+    times, workload = test_reg()
+    plot_results(workload, times, "Student Scaling", "No. Students", "Time", "./scaling.png")
     times, workload = test_teams()
-    plot_results(workload, times, f"Team Size Scaling (for {N_STUDENTS_GROUP_SCALING} students)", "Time", "Team Size", "./team_scaling.png")
+    plot_results(workload, times, f"Team Size Scaling (for {N_STUDENTS_GROUP_SCALING} students)", "Team Size", "Time", f"./team_scaling_{N_STUDENTS_GROUP_SCALING}.png")
     times_fancy, workload_fancy = test_reg(fancy=True)
     times, workload = test_reg()
     fig, ax = plt.subplots()
@@ -35,29 +37,25 @@ def main():
     plot_results(threads_weak, times_weak, 'Weak Scaling', "Time", "Threads", "./weak.png")
     times_strong, threads_strong = test_strong()
     times_strong_inv = 1 / np.array(times_strong)
-    times, workload = test_reg()
     plot_results(threads_strong, times_strong, 'Strong Scaling', "Time", "Threads", "./strong.png")
     plot_results(threads_strong, times_strong_inv, 'Strong Scaling Inverted', "Time", "Threads", "./strong_inv.png")
-    plot_results(workload, times, "Student Scaling", "Time", "No. Students", "./scaling.png")
+
     times_conc, n_conc = test_concurrent()
-    plot_results(times_conc, n_conc, 'Concurrent Solver Scaling', "No. Solvers", "Time", "./conc.png")
-    plot_results(threads_weak, times_weak, 'Weak Scaling', "Threads", "Time", "./weak.png")
-    plot_results(threads_strong, times_strong, 'Strong Scaling', "Threads", "Time", "./strong.png")
-    plot_results(threads_strong, times_strong_inv, 'Strong Scaling Inverted', "Threads", "Time", "./strong_inv.png")
+    plot_results(n_conc, times_conc, 'Concurrent Solver Scaling', "No. Solvers", "Time", "./conc.png")
 
 
 def test_teams():
     times = []
     workloads = []
-    factors_teams = list(factors(N_STUDENTS_GROUP_SCALING))
+    factors_teams = sorted(factors(N_STUDENTS_GROUP_SCALING))
     for n_teams in tqdm.tqdm(factors_teams, desc="Testing team scaling"):
         nodes = list(range(N_STUDENTS_GROUP_SCALING))
         edges = generate_data(N_STUDENTS_GROUP_SCALING)
         func = lambda: calc_osap(node_set=nodes,
                                  edge_set=edges,
                                  n_teams=n_teams,
-                                 min_team_size=3,
-                                 max_team_size=8)
+                                 min_team_size=N_STUDENTS_GROUP_SCALING//n_teams,
+                                 max_team_size=N_STUDENTS_GROUP_SCALING//n_teams)
         times.append(time_func(N_TESTS, func))
         workloads.append(n_teams)
 
@@ -67,17 +65,18 @@ def test_teams():
 def test_reg(fancy: bool = None):
     times = []
     workloads = []
-    peak = 10
-    for step in tqdm.tqdm(range(1, peak), total=peak, desc="Testing linear scaling"):
-        workload = WEAK_SCALE_RATIO*step
+    scale_factor = 20
+    peak = 60
+    for step in tqdm.tqdm(range(peak, 1, -2), total=peak, desc="Testing linear scaling"):
+        workload = scale_factor*step
         nodes = list(range(workload))
         edges = generate_data(workload)
-        n_teams = workload // 5
+        n_teams = workload // 20
         func = lambda: calc_osap(node_set=nodes,
                                  edge_set=edges,
                                  n_teams=n_teams,
-                                 min_team_size=3,
-                                 max_team_size=8,
+                                 min_team_size=20,
+                                 max_team_size=20+20,
                                  dense=fancy,
                                  dense_fancy=fancy)
         times.append(time_func(N_TESTS, func))

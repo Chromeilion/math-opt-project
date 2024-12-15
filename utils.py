@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import scipy
+from functools import reduce
 
 COLORS = {0: "tab:red", 1: "tab:blue", 2: "tab:green", 3: "tab:pink",
           4: "tab:orange", 5: "tab:purple", 6: "tab:brown"}
@@ -15,15 +16,11 @@ mpl.rcParams['figure.dpi'] = 300
 # Is set so that most students have 1  or 2 connections
 MU, SIGMA = 1, 0.3
 
-# Thanks to this post:
-# https://stackoverflow.com/questions/16007204/factorizing-a-number-in-python
+
 def factors(n):
-    while n > 1:
-        for i in range(2, n + 1):
-            if n % i == 0:
-                n //= i
-                yield i
-                break
+    return set(reduce(
+        list.__add__,
+        ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0)))
 
 
 def generate_data(n_students: int):
