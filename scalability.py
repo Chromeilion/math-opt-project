@@ -14,15 +14,17 @@ STRONG_WORKLOAD = 50
 STRONG_MIN_TEAMSIZE = 3
 STRONG_MAX_TEAMSIZE = 6
 STRONG_N_TEAMS =  11
-N_TESTS = 5
-N_STUDENTS_GROUP_SCALING = 50
+N_TESTS = 10
+N_STUDENTS_GROUP_SCALING = 500
 
 
 def main():
-    times, workload = test_reg()
-    plot_results(workload, times, "Student Scaling", "No. Students", "Time", "./scaling.png")
+    times, workload = test_student()
+    plot_results(workload, times, f"Student Scaling", "No. Students", "Time", f"./only_student_scaling.png")
     times, workload = test_teams()
     plot_results(workload, times, f"Team Size Scaling (for {N_STUDENTS_GROUP_SCALING} students)", "Team Size", "Time", f"./team_scaling_{N_STUDENTS_GROUP_SCALING}.png")
+    times, workload = test_reg()
+    plot_results(workload, times, "Student Scaling", "No. Students", "Time", "./scaling.png")
     times_fancy, workload_fancy = test_reg(fancy=True)
     times, workload = test_reg()
     fig, ax = plt.subplots()
@@ -62,11 +64,34 @@ def test_teams():
     return times, workloads
 
 
+def test_student(fancy: bool = None):
+    times = []
+    workloads = []
+    scale_factor = 50
+    peak = 20
+    for step in tqdm.tqdm(range(peak, 1, -2), total=peak, desc="Testing linear scaling"):
+        workload = scale_factor*step
+        nodes = list(range(workload))
+        edges = generate_data(workload)
+        team_size = workload // 20
+        func = lambda: calc_osap(node_set=nodes,
+                                 edge_set=edges,
+                                 n_teams=20,
+                                 min_team_size=team_size-10,
+                                 max_team_size=team_size+10,
+                                 dense=fancy,
+                                 dense_fancy=fancy)
+        times.append(time_func(N_TESTS, func))
+        workloads.append(workload)
+
+    return times, workloads
+
+
 def test_reg(fancy: bool = None):
     times = []
     workloads = []
     scale_factor = 20
-    peak = 60
+    peak = 30
     for step in tqdm.tqdm(range(peak, 1, -2), total=peak, desc="Testing linear scaling"):
         workload = scale_factor*step
         nodes = list(range(workload))
